@@ -1,0 +1,62 @@
+name: Deploy to Cloud Run
+
+on:
+    push:
+        branches:
+            - main
+            - develop
+
+env:
+    REGISTRY: gcr.io
+    IMAGE_NAME: health-api
+    CLOUD_RUN_SERVICE_NAME: health-api
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        environment: development
+
+        permissions:
+            contents: read
+            id-token: write
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Authenticate to Google Cloud
+              uses: google-github-actions/auth@v2
+              with:
+                  credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+            - name: Set up Cloud SDK
+              uses: google-github-actions/setup-gcloud@v2
+
+            - name: Configure Docker for GCR
+              run: gcloud auth configure-docker ${{ env.REGISTRY }}
+
+            - name: Build Docker image
+              run: |
+                  docker build \
+                    -t ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+                    -t ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }}:latest \
+                    .
+
+            - name: Push image to Container Registry
+              run: |
+                  docker push ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+                  docker push ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }}:latest
+
+            - name: Deploy to Cloud Run
+              run: |
+                  gcloud run deploy ${{ env.CLOUD_RUN_SERVICE_NAME }} \
+                    --image ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+                    --platform managed \
+                    --region ${{ secrets.GCP_REGION }} \
+                    --allow-unauthenticated \
+                    --set-env-vars "ENVIRONMENT=development" \
+                    --memory 512Mi \
+                    --cpu 1 \
+                    --timeout 3600 \
+                    --min-instances 0 \
+                    --max-instances 1
