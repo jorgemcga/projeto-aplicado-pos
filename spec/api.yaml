@@ -1,0 +1,24 @@
+openapi: 3.0.3
+info:
+  title: Health API
+  version: 1.0.0
+
+paths:
+  /health:
+    get:
+      summary: Check if API is running
+      responses:
+        "200":
+          description: API running and Database connected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  database:
+                    type: string
+              example:
+                status: running
+                database: connected

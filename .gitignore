@@ -1,0 +1,16 @@
+dump.rdb
+.env
+
+__pycache__/
+*.pyc
+.idea/
+
+**/__pycache__/
+**/*.pyc
+settings.json
+
+# Environments
+.venv
+env/
+venv/
+app.log*
