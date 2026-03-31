@@ -14,7 +14,11 @@ logger = logging.getLogger("uvicorn")
 
 # Configurar conexão PostgreSQL
 DATABASE_URL = os.getenv("DATABASE_URL")
-engine = create_engine(DATABASE_URL)
+engine = None
+if DATABASE_URL:
+    engine = create_engine(DATABASE_URL)
+else:
+    logger.warning("DATABASE_URL not configured")
 
 
 @app.get("/health")
@@ -25,14 +29,20 @@ async def health_check() -> Dict[str, str]:
     Returns:
         Dict with status and database connection state
     """
-    try:
-        with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
-        database_status = "connected"
-        logger.info("Database connection successful")
-    except Exception as e:
-        database_status = f"disconnected: {str(e)}"
-        logger.error(f"Database connection failed: {str(e)}")
+    database_status = "disconnected"
+    
+    if engine:
+        try:
+            with engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+            database_status = "connected"
+            logger.info("Database connection successful")
+        except Exception as e:
+            database_status = f"disconnected: {str(e)}"
+            logger.error(f"Database connection failed: {str(e)}")
+    else:
+        database_status = "not_configured"
+        logger.warning("Database not configured")
     
     return {
         "status": "running",
@@ -42,4 +52,5 @@ async def health_check() -> Dict[str, str]:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
